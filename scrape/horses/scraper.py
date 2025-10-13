@@ -135,7 +135,7 @@ def main(start, end):
             continue
 
         # --- ランダム待機（安全運用） ---
-        wait = random.uniform(20, 40)
+        wait = random.uniform(5, 15)
         logging.info(f"Waiting {wait:.1f} seconds before next request...")
         time.sleep(wait)
 
