@@ -1,29 +1,50 @@
-#!/bin/bash
+#!/usr/bin/bash
 # run.sh
-# 自動進捗管理版
-# 1回の実行で何件ずつ処理するかを BATCH_SIZE で設定
+# 自動進捗管理 + cron対応版（ログイン不要で動作）
+# 1回の実行で処理する件数を BATCH_SIZE で設定
 
+set -e  # 途中でエラーが出たらスクリプトを停止
+set -u  # 未定義変数を使うとエラーにする
+set -o pipefail
+
+# ========= 設定 =========
 BATCH_SIZE=1500
-PROGRESS_FILE=~/netkeiba/scraper_horses/scrape/horses/last_id.txt
+BASE_DIR="/home/ubuntu/netkeiba/scraper_horses/scrape/horses"
+PROGRESS_FILE="$BASE_DIR/last_id.txt"
+VENV_PATH="/home/ubuntu/netkeiba/venv/bin/activate"
+SCRAPER="/home/ubuntu/netkeiba/scraper_horses/scrape/horses/scraper.py"
+LOG_FILE="$BASE_DIR/batch.log"
+# ========================
 
-# 前回の進捗を取得
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Batch start ===" >> "$LOG_FILE"
+
+# 進捗読み込み
 if [ -f "$PROGRESS_FILE" ]; then
     START=$(cat "$PROGRESS_FILE")
-    START=$((START + 1))  # 次のIDから開始
+    START=$((START + 1))
 else
-    START=20000  # 初回は20000行目から開始
+    START=20000
 fi
-
 END=$((START + BATCH_SIZE - 1))
 
-echo "Scraping horses from $START to $END ..."
+echo "Processing horses from $START to $END ..." >> "$LOG_FILE"
 
-# 仮想環境有効化
-source ~/netkeiba/venv/bin/activate
+# 仮想環境を有効化
+if [ -f "$VENV_PATH" ]; then
+    source "$VENV_PATH"
+else
+    echo "Error: Virtual environment not found at $VENV_PATH" >> "$LOG_FILE"
+    exit 1
+fi
 
 # スクレイピング実行
-python ~/netkeiba/scraper_horses/scrape/horses/scraper.py --start $START --end $END
+if python "$SCRAPER" --start "$START" --end "$END" >> "$LOG_FILE" 2>&1; then
+    echo "$END" > "$PROGRESS_FILE"
+    echo "Progress saved: last ID = $END" >> "$LOG_FILE"
+else
+    echo "Error occurred during scraping. Progress not saved." >> "$LOG_FILE"
+    exit 1
+fi
 
-# 進捗を保存
-echo $END > "$PROGRESS_FILE"
-echo "Progress saved: last ID = $END"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Batch end ===" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
