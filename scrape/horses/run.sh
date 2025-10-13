@@ -8,7 +8,7 @@ set -u  # 未定義変数を使うとエラーにする
 set -o pipefail
 
 # ========= 設定 =========
-BATCH_SIZE=4000
+BATCH_SIZE=2000
 BASE_DIR="/home/ubuntu/netkeiba/scraper_horses/scrape/horses"
 PROGRESS_FILE="$BASE_DIR/last_id.txt"
 VENV_PATH="/home/ubuntu/netkeiba/venv/bin/activate"
