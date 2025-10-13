@@ -11,7 +11,7 @@ if [ -f "$PROGRESS_FILE" ]; then
     START=$(cat "$PROGRESS_FILE")
     START=$((START + 1))  # 次のIDから開始
 else
-    START=1
+    START=20000  # 初回は20000行目から開始
 fi
 
 END=$((START + BATCH_SIZE - 1))
