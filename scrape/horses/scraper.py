@@ -9,16 +9,22 @@ import sys
 import random
 import time
 
-# User-Agentリスト
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-]
+# ===============================
+# ディレクトリ設定
+# ===============================
+BASE_DIR = Path("/home/ubuntu/netkeiba/data/horses")
+LOG_DIR = Path("/home/ubuntu/netkeiba/data/logs")
+JSON_DIR = BASE_DIR / "json_output"
+HORSE_IDS_FILE = BASE_DIR / "horse_ids.txt"
 
+JSON_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+# ===============================
 # ログ設定
+# ===============================
 logging.basicConfig(
-    filename="scraper.log",
+    filename=LOG_DIR / "scraper.log",
     filemode="a",
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.INFO
@@ -29,9 +35,17 @@ formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 console.setFormatter(formatter)
 logging.getLogger("").addHandler(console)
 
+# User-Agentリスト
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+]
 
+# -------------------------------
+# 以下、既存関数は変更なし
+# -------------------------------
 def parse_money(text):
-    """金額を整数に変換"""
     text = text.replace(",", "").replace(" ", "")
     if text == "-" or text == "0万円":
         return 0
@@ -42,15 +56,11 @@ def parse_money(text):
         return oku * 100000000 + man * 10000
     return 0
 
-
 def scrape_horse_info(horse_id):
-    """1頭分のデータ取得"""
     url = f"https://db.netkeiba.com/horse/{horse_id}/"
     headers = {"User-Agent": random.choice(USER_AGENTS)}
 
     res = requests.get(url, headers=headers, timeout=30)
-
-    # --- レート制限対応 ---
     if res.status_code in (403, 429):
         logging.warning(f"⚠️ HTTP {res.status_code} for {horse_id}. Sleeping 10 minutes...")
         time.sleep(600)
@@ -60,13 +70,10 @@ def scrape_horse_info(horse_id):
     soup = BeautifulSoup(res.text, "html.parser")
 
     data = {"horse_id": horse_id}
-
-    # 馬名
     name_tag = soup.select_one("div.horse_title h1")
     if name_tag:
         data["horse_name"] = name_tag.text.strip()
 
-    # 性別・毛色・現役/引退
     txt01 = soup.select_one("div.horse_title p.txt_01")
     if txt01:
         txt = txt01.get_text(strip=True)
@@ -76,7 +83,6 @@ def scrape_horse_info(horse_id):
         data["color"] = color_match.group(1) if color_match else None
         data["retired"] = any(x in txt for x in ["抹消", "引退", "クラシック"])
 
-    # プロフィールテーブル
     table = soup.select_one("table.db_prof_table")
     if table:
         for row in table.select("tr"):
@@ -112,12 +118,9 @@ def scrape_horse_info(horse_id):
 
     return data
 
-
 def main(start, end):
-    horse_ids_file = Path("horse_ids.txt")
-    with open(horse_ids_file, "r", encoding="utf-8") as f:
+    with open(HORSE_IDS_FILE, "r", encoding="utf-8") as f:
         horse_ids = [line.strip() for line in f if line.strip()]
-
     horse_ids = horse_ids[start-1:end]
 
     results = []
@@ -134,20 +137,14 @@ def main(start, end):
             time.sleep(backoff)
             continue
 
-        # --- ランダム待機（安全運用） ---
         wait = random.uniform(5, 15)
         logging.info(f"Waiting {wait:.1f} seconds before next request...")
         time.sleep(wait)
 
-    # --- JSON保存 ---
-    output_dir = Path("json_output")
-    output_dir.mkdir(exist_ok=True)
-    output_file = output_dir / f"horses_{start}_{end}.json"
+    output_file = JSON_DIR / f"horses_{start}_{end}.json"
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-
     logging.info(f"💾 Saved {len(results)} horses to {output_file}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
