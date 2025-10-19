@@ -12,11 +12,13 @@ import time
 # ===============================
 # ディレクトリ設定
 # ===============================
-BASE_DIR = Path("/home/ubuntu/netkeiba/data/horses")
-LOG_DIR = Path("/home/ubuntu/netkeiba/data/logs")
+DATA_BASE = Path("/home/ubuntu/netkeiba/data")
+BASE_DIR = DATA_BASE / "horses"
+LOG_DIR = DATA_BASE / "logs"
 JSON_DIR = BASE_DIR / "json_output"
-HORSE_IDS_FILE = BASE_DIR / "horse_ids.txt"
+HORSE_IDS_FILE = Path("/home/ubuntu/netkeiba/scraper_horses/scrape/horses/horse_ids.txt")
 
+# ディレクトリ作成
 JSON_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -35,16 +37,19 @@ formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 console.setFormatter(formatter)
 logging.getLogger("").addHandler(console)
 
+# ===============================
 # User-Agentリスト
+# ===============================
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
 ]
 
-# -------------------------------
-# 以下、既存関数は変更なし
-# -------------------------------
+
+# ===============================
+# 補助関数
+# ===============================
 def parse_money(text):
     text = text.replace(",", "").replace(" ", "")
     if text == "-" or text == "0万円":
@@ -53,9 +58,13 @@ def parse_money(text):
     if match:
         oku = int(match.group(1)) if match.group(1) else 0
         man = int(match.group(2)) if match.group(2) else 0
-        return oku * 100000000 + man * 10000
+        return oku * 100_000_000 + man * 10_000
     return 0
 
+
+# ===============================
+# 馬データスクレイピング
+# ===============================
 def scrape_horse_info(horse_id):
     url = f"https://db.netkeiba.com/horse/{horse_id}/"
     headers = {"User-Agent": random.choice(USER_AGENTS)}
@@ -81,7 +90,7 @@ def scrape_horse_info(horse_id):
         data["sex"] = sex_match.group(1) if sex_match else None
         color_match = re.search(r"(鹿毛|黒鹿毛|芦毛|栗毛|青鹿毛|白毛)", txt)
         data["color"] = color_match.group(1) if color_match else None
-        data["retired"] = any(x in txt for x in ["抹消", "引退", "クラシック"])
+        data["retired"] = any(x in txt for x in ["抹消", "引退"])
 
     table = soup.select_one("table.db_prof_table")
     if table:
@@ -118,10 +127,14 @@ def scrape_horse_info(horse_id):
 
     return data
 
+
+# ===============================
+# メイン処理
+# ===============================
 def main(start, end):
     with open(HORSE_IDS_FILE, "r", encoding="utf-8") as f:
         horse_ids = [line.strip() for line in f if line.strip()]
-    horse_ids = horse_ids[start-1:end]
+    horse_ids = horse_ids[start - 1:end]
 
     results = []
     for idx, horse_id in enumerate(horse_ids, start=start):
@@ -137,7 +150,7 @@ def main(start, end):
             time.sleep(backoff)
             continue
 
-        wait = random.uniform(5, 15)
+        wait = random.uniform(3, 8)
         logging.info(f"Waiting {wait:.1f} seconds before next request...")
         time.sleep(wait)
 
@@ -146,6 +159,10 @@ def main(start, end):
         json.dump(results, f, ensure_ascii=False, indent=2)
     logging.info(f"💾 Saved {len(results)} horses to {output_file}")
 
+
+# ===============================
+# エントリーポイント
+# ===============================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", type=int, required=True)

@@ -1,35 +1,32 @@
 #!/usr/bin/bash
-# run.sh
-# 自動進捗管理 + cron対応版（ログイン不要で動作）
-# 1回の実行で処理する件数を BATCH_SIZE で設定
-
-set -e  # 途中でエラーが出たらスクリプトを停止
-set -u  # 未定義変数を使うとエラーにする
+set -e
+set -u
 set -o pipefail
 
 # ========= 設定 =========
 BATCH_SIZE=2000
-BASE_DIR="/home/ubuntu/netkeiba/scraper_horses/scrape/horses"
-PROGRESS_FILE="$BASE_DIR/last_id.txt"
-VENV_PATH="/home/ubuntu/netkeiba/venv/bin/activate"
+DATA_DIR="/home/ubuntu/netkeiba/data/horses"
+LOG_DIR="/home/ubuntu/netkeiba/data/logs"
 SCRAPER="/home/ubuntu/netkeiba/scraper_horses/scrape/horses/scraper.py"
-LOG_FILE="$BASE_DIR/batch.log"
+VENV_PATH="/home/ubuntu/netkeiba/venv/bin/activate"
+
+PROGRESS_FILE="$DATA_DIR/last_id.txt"
+LOG_FILE="$LOG_DIR/batch.log"
 # ========================
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Batch start ===" >> "$LOG_FILE"
 
-# 進捗読み込み
 if [ -f "$PROGRESS_FILE" ]; then
     START=$(cat "$PROGRESS_FILE")
     START=$((START + 1))
 else
-    START=20000
+    START=1
 fi
 END=$((START + BATCH_SIZE - 1))
 
 echo "Processing horses from $START to $END ..." >> "$LOG_FILE"
 
-# 仮想環境を有効化
+# 仮想環境
 if [ -f "$VENV_PATH" ]; then
     source "$VENV_PATH"
 else
