@@ -7,8 +7,8 @@ import path from "path";
 // ===============================
 
 // 出力フォルダ
-const jsonDir = path.resolve("../output/json");
-const logDir = path.resolve("../output/log");
+const jsonDir = "/home/ubuntu/netkeiba/data/pedigree/json";
+const logDir = "/home/ubuntu/netkeiba/data/logs";
 
 // フォルダ作成（なければ作る）
 if (!fs.existsSync(jsonDir)) fs.mkdirSync(jsonDir, { recursive: true });
