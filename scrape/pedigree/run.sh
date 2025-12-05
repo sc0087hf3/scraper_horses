@@ -5,14 +5,17 @@ set -o pipefail
 
 # ========= 設定 =========
 BATCH_SIZE=2000
-BASE_DIR="/home/ubuntu/netkeiba/data/pedigree"
-SCRIPT="/home/ubuntu/netkeiba/scraper_horses/scrape/pedigree/scrape_pedigree.js"
 
-PROGRESS_FILE="$BASE_DIR/last_index.txt"
-LOG_DIR="$BASE_DIR/logs"
+SCRIPT="/home/ubuntu/netkeiba/scraper_horses/scrape/pedigree/scrape_pedigree.js"
+PROGRESS_FILE="/home/ubuntu/netkeiba/data/pedigree/last_index.txt"
+
+LOG_DIR="/home/ubuntu/netkeiba/data/pedigree/logs"
 LOG_FILE="$LOG_DIR/batch.log"
 
-HORSE_ID_FILE="$BASE_DIR/horse_ids.txt"
+HORSE_ID_FILE="/home/ubuntu/netkeiba/scraper_horses/scrape/pedigree/horse_ids.txt"
+
+# Node の PATH（重要）
+export PATH="$HOME/.nvm/versions/node/v18.19.0/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 # ========================
 
 mkdir -p "$LOG_DIR"
