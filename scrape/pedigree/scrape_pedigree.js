@@ -1,10 +1,18 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // ===============================
-// 設定
+// パス設定（cron対応版）
 // ===============================
+
+// 現在のファイルの絶対パス
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// horse_ids.txt（同じフォルダ）
+const horseIdFile = path.join(__dirname, "horse_ids.txt");
 
 // 出力フォルダ
 const jsonDir = "/home/ubuntu/netkeiba/data/pedigree/json";
@@ -14,21 +22,22 @@ const logDir = "/home/ubuntu/netkeiba/data/logs";
 if (!fs.existsSync(jsonDir)) fs.mkdirSync(jsonDir, { recursive: true });
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
-// User-Agentリスト
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-];
-
+// ===============================
 // horse_ids.txt の読み込み
-const horseIdFile = path.resolve("./horse_ids.txt");
+// ===============================
+if (!fs.existsSync(horseIdFile)) {
+  console.error("❌ horse_ids.txt が見つかりません: " + horseIdFile);
+  process.exit(1);
+}
+
 const horseIds = fs.readFileSync(horseIdFile, "utf-8")
   .split("\n")
   .map(line => line.trim())
   .filter(Boolean);
 
-// コマンド引数（例: node scrape_pedigree.js 0 500）
+// ===============================
+// コマンド引数設定
+// ===============================
 const args = process.argv.slice(2);
 const startLine = args[0] ? parseInt(args[0], 10) : 0;
 const endLine = args[1] ? parseInt(args[1], 10) : horseIds.length - 1;
@@ -36,7 +45,16 @@ const endLine = args[1] ? parseInt(args[1], 10) : horseIds.length - 1;
 console.log(`Processing lines ${startLine} to ${endLine} of ${horseIds.length}`);
 
 // ===============================
-// ランダムスリープ関数（1〜3秒）
+// User-Agentリスト
+// ===============================
+const USER_AGENTS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+];
+
+// ===============================
+// ランダムスリープ
 // ===============================
 function sleepRandom(min = 1000, max = 3000) {
   const ms = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -60,13 +78,12 @@ function sleepRandom(min = 1000, max = 3000) {
     const context = await browser.newContext({ userAgent: randomUA });
     const page = await context.newPage();
 
-    console.log(`\n🐴 Fetching (${i}): ${horseId} with UA: ${randomUA}`);
+    console.log(`\n🐴 Fetching (${i}): ${horseId}`);
 
     try {
       await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector(".blood_table td a", { timeout: 5000 });
 
-      // 血統データ抽出
       const pedigree = await page.$$eval(".blood_table tbody tr", (rows) => {
         const extractHorse = (el) => {
           if (!el) return null;
@@ -109,15 +126,13 @@ function sleepRandom(min = 1000, max = 3000) {
 
     await page.close();
     await context.close();
-
-    // 🕒 ランダムスリープ（1〜4秒）
     await sleepRandom(1000, 4000);
   }
 
   await browser.close();
 
   // ===============================
-  // 出力
+  // 保存処理
   // ===============================
   const jsonPath = path.join(jsonDir, `pedigree_${startLine}_${endLine}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(allPedigree, null, 2), "utf-8");
